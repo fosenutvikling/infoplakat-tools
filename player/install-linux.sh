@@ -37,6 +37,23 @@ ok()    { echo -e "${GREEN}[OK]${NC} $1"; }
 warn()  { echo -e "${YELLOW}[WARN]${NC} $1"; }
 error() { echo -e "${RED}[ERROR]${NC} $1"; exit 1; }
 
+# Interactive read that works when piped (curl | bash)
+# Falls back to default value if /dev/tty is not available
+ask() {
+    local prompt="$1"
+    local varname="$2"
+    local default="${3:-}"
+    if [[ -t 0 ]]; then
+        read -rp "$prompt" "$varname"
+    elif [[ -e /dev/tty ]]; then
+        read -rp "$prompt" "$varname" < /dev/tty
+    else
+        printf '%s' "$prompt"
+        printf -v "$varname" '%s' "$default"
+        echo "$default"
+    fi
+}
+
 # --- Check prerequisites ---
 check_prerequisites() {
     if [[ "$OSTYPE" != "linux-gnu"* ]]; then
@@ -85,7 +102,7 @@ check_existing() {
 
         if [[ "$current" == "$VERSION" ]]; then
             ok "Infoplakat Player v${VERSION} is already installed."
-            read -rp "Do you want to reinstall? (y/N) " reinstall
+            ask "Do you want to reinstall? (y/N) " reinstall "n"
             if [[ ! "$reinstall" =~ ^[yYjJ]$ ]]; then
                 info "Aborted. No changes made."
                 exit 0
@@ -269,7 +286,7 @@ setup_autologin() {
         if grep -q "AutomaticLoginEnable=true" "$gdm_conf" 2>/dev/null; then
             ok "Automatic login is already enabled"
         else
-            read -rp "Enable automatic login for user '$(whoami)'? (Y/n) " enable_autologin
+            ask "Enable automatic login for user '$(whoami)'? (Y/n) " enable_autologin "y"
             if [[ ! "$enable_autologin" =~ ^[nN]$ ]]; then
                 sudo sed -i '/\[daemon\]/a AutomaticLoginEnable=true\nAutomaticLogin='"$(whoami)" "$gdm_conf"
                 ok "Automatic login enabled for '$(whoami)'"
