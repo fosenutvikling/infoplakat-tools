@@ -14,7 +14,8 @@
 #   3. Installs to /opt/infoplakat-player
 #   4. Sets up autostart on login
 #   5. Disables screensaver and power management
-#   6. Installs unclutter (hides mouse cursor)
+#   6. Disables desktop notifications (update prompts) over the display
+#   7. Installs unclutter (hides mouse cursor)
 #
 
 set -euo pipefail
@@ -245,6 +246,27 @@ EOF
     fi
 }
 
+# --- Disable desktop notifications (update prompts, snap, etc.) over the display ---
+configure_notifications() {
+    info "Disabling desktop notifications over the display..."
+
+    if command -v gsettings &> /dev/null; then
+        # Hide all notification banners (they pop over the fullscreen player)
+        gsettings set org.gnome.desktop.notifications show-banners false 2>/dev/null || true
+
+        # Suppress Ubuntu apt "updates available" notifications
+        gsettings set com.ubuntu.update-notifier no-show-notifications true 2>/dev/null || true
+
+        # Stop GNOME Software auto-downloading/prompting for updates (if installed)
+        gsettings set org.gnome.software download-updates false 2>/dev/null || true
+        gsettings set org.gnome.software allow-updates false 2>/dev/null || true
+
+        ok "Desktop notifications disabled"
+    else
+        warn "gsettings not found. Disable notifications manually in Settings > Notifications."
+    fi
+}
+
 # --- Install unclutter (hides mouse cursor) ---
 install_unclutter() {
     if command -v unclutter &> /dev/null; then
@@ -340,6 +362,7 @@ main() {
     install_app
     setup_autostart
     configure_power
+    configure_notifications
     install_unclutter
     setup_autologin
     print_summary
